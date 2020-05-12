@@ -108,7 +108,7 @@ func (handler *Handler) Read() []string {
 	var message []byte
 	data := make([]string, 81)
 	conn := <- handler.conn
-	_ = conn.SetReadDeadline(time.Now().Add(time.Second))
+	_ = conn.SetReadDeadline(time.Now().Add(time.Second * 2))
 	_, message, err = conn.ReadMessage()
 	handler.conn <- conn
 	if err != nil {
