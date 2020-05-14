@@ -34,8 +34,10 @@ func main() {
 	flag.Parse()
 	errpath = fmt.Sprintf("./log/%s_error.log", *symbol)
 	if *kind {
+		errpath = fmt.Sprintf("./log/%sfuture_error.log", *symbol)
 		urlpath = fmt.Sprintf("%s%susdt@depth20@100ms", futurebasepath, *symbol)
 	} else {
+		errpath = fmt.Sprintf("./log/%sspot_error.log", *symbol)
 		urlpath = fmt.Sprintf("%s%susdt@depth20@100ms", spotbasepath, *symbol)
 	}
 	handler := initialization()
