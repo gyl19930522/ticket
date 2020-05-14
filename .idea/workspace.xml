@@ -45,7 +45,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Go Test.TestHandler_Read in USoption (2)">
+  <component name="RunManager" selected="Go Build.go build main.go">
     <configuration name="go build main.go" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
       <module name="USoption" />
       <working_directory value="$PROJECT_DIR$/" />
@@ -90,9 +90,9 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Go Build.go build main.go" />
         <item itemvalue="Go Test.TestHandler_Read in USoption (2)" />
         <item itemvalue="Go Test.TestHandler_Read in USoption (1)" />
-        <item itemvalue="Go Build.go build main.go" />
         <item itemvalue="Go Test.TestHandler_Read in USoption" />
       </list>
     </recent_temporary>

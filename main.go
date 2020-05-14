@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/csv"
+	"flag"
 	"fmt"
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
@@ -13,8 +14,13 @@ import (
 
 const (
 	errorpath = "./log/error.log"
-	urlpath = "wss://fstream.binance.com/ws/btcusdt@depth20@100ms"
+	futurebasepath = "wss://fstream.binance.com/ws/"
+	spotbasepath = "wss://stream.binance.com:9443/ws/"
 )
+
+var kind = flag.Bool("k", true, "true is future, false is spot")
+var symbol = flag.String("s", "btc", "symbol name")
+var urlpath string
 
 type Handler struct {
 	err  			chan error
@@ -26,6 +32,12 @@ type Handler struct {
 }
 
 func main() {
+	flag.Parse()
+	if *kind {
+		urlpath = fmt.Sprintf("%s%susdt@depth20@100ms", futurebasepath, *symbol)
+	} else {
+		urlpath = fmt.Sprintf("%s%susdt@depth20@100ms", spotbasepath, *symbol)
+	}
 	handler := initialization()
 	defer handler.Close()
 	go handler.LoopReconnect()
@@ -70,9 +82,14 @@ func initialization() *Handler {
 
 func (handler *Handler) createNewFile() time.Duration {
 	var err error
+	var path string
 	t := time.Now()
 	year, month, day := t.Date()
-	path := fmt.Sprintf("./tick-%d-%d-%d.csv", year, month, day)
+	if *kind {
+		path = fmt.Sprintf("./data/%s-future-%d-%d-%d.csv", *symbol, year, month, day)
+	} else {
+		path = fmt.Sprintf("./data/%s-spot-%d-%d-%d.csv", *symbol, year, month, day)
+	}
 	if handler.pricefile, err = os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0666); err != nil {
 		handler.logger.SetPrefix("[Error]")
 		handler.logger.Fatalln(err)
@@ -118,12 +135,10 @@ func (handler *Handler) Read() []string {
 	} else {
 		data[0] = strconv.FormatInt(jsoniter.Get(message, "E").ToInt64(), 10)
 		for i := 0; i < 20; i++ {
-			data[2 * i + 1] = jsoniter.Get(message, "b", i, 0, "f").ToString()
-			data[2 * i + 2] = jsoniter.Get(message, "b", i, 1, "f").ToString()
-		}
-		for i := 20; i < 40; i++ {
-			data[2 * i + 1] = jsoniter.Get(message, "a", i, 0, "f").ToString()
-			data[2 * i + 2] = jsoniter.Get(message, "a", i, 1, "f").ToString()
+			data[2 * i + 1] = jsoniter.Get(message, "b", i, 0).ToString()
+			data[2 * i + 2] = jsoniter.Get(message, "b", i, 1).ToString()
+			data[2 * (i + 20) + 1] = jsoniter.Get(message, "a", i, 0).ToString()
+			data[2 * (i + 20) + 2] = jsoniter.Get(message, "a", i, 1).ToString()
 		}
 		return data
 	}
