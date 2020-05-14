@@ -13,14 +13,13 @@ import (
 )
 
 const (
-	errorpath = "./log/error.log"
 	futurebasepath = "wss://fstream.binance.com/ws/"
 	spotbasepath = "wss://stream.binance.com:9443/ws/"
 )
 
 var kind = flag.Bool("k", true, "true is future, false is spot")
 var symbol = flag.String("s", "btc", "symbol name")
-var urlpath string
+var urlpath, errpath string
 
 type Handler struct {
 	err  			chan error
@@ -33,6 +32,7 @@ type Handler struct {
 
 func main() {
 	flag.Parse()
+	errpath = fmt.Sprintf("./log/%s_error.log", *symbol)
 	if *kind {
 		urlpath = fmt.Sprintf("%s%susdt@depth20@100ms", futurebasepath, *symbol)
 	} else {
@@ -61,7 +61,7 @@ func main() {
 func initialization() *Handler {
 	var err error
 	handler := new(Handler)
-	if handler.logfile, err = os.Create(errorpath); err != nil {
+	if handler.logfile, err = os.Create(errpath); err != nil {
 		handler.logger.SetPrefix("[Error]")
 		log.Fatalln(err)
 	} else {
