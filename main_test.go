@@ -8,6 +8,8 @@ import (
 )
 
 func TestHandler_Read(t *testing.T) {
+	fmt.Println(time.Now().Unix())
+	fmt.Println(time.Now().UTC().Unix())
 	if conn, _, err := websocket.DefaultDialer.Dial("wss://fstream.yshyqxx.com/ws/btcusdt@kline_1m",
 		nil); err != nil {
 		t.Error(err)

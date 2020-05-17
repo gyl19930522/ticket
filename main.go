@@ -19,7 +19,7 @@ const (
 
 var kind = flag.Bool("k", true, "true is future, false is spot")
 var symbol = flag.String("s", "btc", "symbol name")
-var urlpath, errpath string
+var urlpath, errpath, pricepath string
 
 type Handler struct {
 	err  			chan error
@@ -36,9 +36,11 @@ func main() {
 	if *kind {
 		errpath = fmt.Sprintf("./log/%sfuture_error.log", *symbol)
 		urlpath = fmt.Sprintf("%s%susdt@depth20@100ms", futurebasepath, *symbol)
+		pricepath = fmt.Sprintf("./data/%sfuture", *symbol)
 	} else {
 		errpath = fmt.Sprintf("./log/%sspot_error.log", *symbol)
 		urlpath = fmt.Sprintf("%s%susdt@depth20@100ms", spotbasepath, *symbol)
+		pricepath = fmt.Sprintf("./data/%sspot", *symbol)
 	}
 	handler := initialization()
 	defer handler.Close()
@@ -70,6 +72,10 @@ func initialization() *Handler {
 		handler.logger = log.New(handler.logfile, "[Warning]", log.LstdFlags)
 	}
 
+	if err := os.Mkdir(pricepath, os.ModePerm); err != nil {
+		handler.logger.Println(err)
+	}
+
 	handler.timer = time.NewTimer(handler.createNewFile())
 	handler.conn = make(chan *websocket.Conn, 1)
 	handler.err = make(chan error)
@@ -84,19 +90,14 @@ func initialization() *Handler {
 
 func (handler *Handler) createNewFile() time.Duration {
 	var err error
-	var path string
 	t := time.Now()
 	year, month, day := t.Date()
-	if *kind {
-		path = fmt.Sprintf("./data/%s-future-%d-%d-%d.csv", *symbol, year, month, day)
-	} else {
-		path = fmt.Sprintf("./data/%s-spot-%d-%d-%d.csv", *symbol, year, month, day)
-	}
+	path := fmt.Sprintf("%s/%d-%d-%d.csv", pricepath, year, month, day)
 	if handler.pricefile, err = os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0666); err != nil {
 		handler.logger.SetPrefix("[Error]")
 		handler.logger.Fatalln(err)
 	}
-	return time.Second * time.Duration((t.Unix() / 86400 + 1) * 86400 - t.Unix() + 2)
+	return time.Second * time.Duration((t.Unix() / 86400 + 1) * 86400 - t.Unix() + 1)
 }
 
 func (handler *Handler) reconnect() {
