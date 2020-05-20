@@ -13,13 +13,13 @@ import (
 )
 
 const (
-	futurebasepath = "wss://fstream.binance.com/ws/"
-	spotbasepath = "wss://stream.binance.com:9443/ws/"
+	futurebasepath = "wss://fstream.binance.com/ws"
+	spotbasepath = "wss://stream.binance.com:9443/ws"
 )
 
 var kind = flag.Bool("k", true, "true is future, false is spot")
 var symbol = flag.String("s", "btc", "symbol name")
-var urlpath, errpath, pricepath string
+var urlpath, errpath string
 
 type Handler struct {
 	err  			chan error
@@ -35,12 +35,10 @@ func main() {
 	errpath = fmt.Sprintf("./log/%s_error.log", *symbol)
 	if *kind {
 		errpath = fmt.Sprintf("./log/%sfuture_error.log", *symbol)
-		urlpath = fmt.Sprintf("%s%susdt@depth20@100ms", futurebasepath, *symbol)
-		pricepath = fmt.Sprintf("./data/%sfuture", *symbol)
+		urlpath = fmt.Sprintf("%s/%susdt@depth20@100ms", futurebasepath, *symbol)
 	} else {
 		errpath = fmt.Sprintf("./log/%sspot_error.log", *symbol)
-		urlpath = fmt.Sprintf("%s%susdt@depth20@100ms", spotbasepath, *symbol)
-		pricepath = fmt.Sprintf("./data/%sspot", *symbol)
+		urlpath = fmt.Sprintf("%s/%susdt@depth20@100ms", spotbasepath, *symbol)
 	}
 	handler := initialization()
 	defer handler.Close()
@@ -72,10 +70,6 @@ func initialization() *Handler {
 		handler.logger = log.New(handler.logfile, "[Warning]", log.LstdFlags)
 	}
 
-	if err := os.Mkdir(pricepath, os.ModePerm); err != nil {
-		handler.logger.Println(err)
-	}
-
 	handler.timer = time.NewTimer(handler.createNewFile())
 	handler.conn = make(chan *websocket.Conn, 1)
 	handler.err = make(chan error)
@@ -92,8 +86,19 @@ func (handler *Handler) createNewFile() time.Duration {
 	var err error
 	t := time.Now()
 	year, month, day := t.Date()
-	path := fmt.Sprintf("%s/%d-%d-%d.csv", pricepath, year, month, day)
-	if handler.pricefile, err = os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0666); err != nil {
+	path := fmt.Sprintf("./data/%d-%d-%d", year, month, day)
+	if err := os.Mkdir(path, os.ModePerm); err != nil {
+		handler.logger.Println(err)
+	}
+
+	var path2 string
+	if *kind {
+		path2 = fmt.Sprintf("%s/%sfuture-%d-%d-%d.csv", path, *symbol, year, month, day)
+	} else {
+		path2 = fmt.Sprintf("%s/%sspot-%d-%d-%d.csv", path, *symbol, year, month, day)
+	}
+
+	if handler.pricefile, err = os.OpenFile(path2, os.O_CREATE|os.O_RDWR, 0666); err != nil {
 		handler.logger.SetPrefix("[Error]")
 		handler.logger.Fatalln(err)
 	}
@@ -128,7 +133,8 @@ func (handler *Handler) Read() []string {
 	var message []byte
 	data := make([]string, 81)
 	conn := <- handler.conn
-	_ = conn.SetReadDeadline(time.Now().Add(time.Second * 3))
+	t := time.Now()
+	_ = conn.SetReadDeadline(t.Add(time.Second * 3))
 	_, message, err = conn.ReadMessage()
 	handler.conn <- conn
 	if err != nil {
@@ -136,12 +142,22 @@ func (handler *Handler) Read() []string {
 		handler.err <- nil
 		return handler.Read()
 	} else {
-		data[0] = strconv.FormatInt(jsoniter.Get(message, "E").ToInt64(), 10)
-		for i := 0; i < 20; i++ {
-			data[2 * i + 1] = jsoniter.Get(message, "b", i, 0).ToString()
-			data[2 * i + 2] = jsoniter.Get(message, "b", i, 1).ToString()
-			data[2 * (i + 20) + 1] = jsoniter.Get(message, "a", i, 0).ToString()
-			data[2 * (i + 20) + 2] = jsoniter.Get(message, "a", i, 1).ToString()
+		if *kind {
+			data[0] = strconv.FormatInt(jsoniter.Get(message, "T").ToInt64(), 10)
+			for i := 0; i < 20; i++ {
+				data[2 * i + 1] = jsoniter.Get(message, "b", i, 0).ToString()
+				data[2 * i + 2] = jsoniter.Get(message, "b", i, 1).ToString()
+				data[2 * (i + 20) + 1] = jsoniter.Get(message, "a", i, 0).ToString()
+				data[2 * (i + 20) + 2] = jsoniter.Get(message, "a", i, 1).ToString()
+			}
+		} else {
+			data[0] = strconv.FormatInt(t.UnixNano() / 1e6, 10)
+			for i := 0; i < 20; i++ {
+				data[2 * i + 1] = jsoniter.Get(message, "bids", i, 0).ToString()
+				data[2 * i + 2] = jsoniter.Get(message, "bids", i, 1).ToString()
+				data[2 * (i + 20) + 1] = jsoniter.Get(message, "asks", i, 0).ToString()
+				data[2 * (i + 20) + 2] = jsoniter.Get(message, "asks", i, 1).ToString()
+			}
 		}
 		return data
 	}
